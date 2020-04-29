@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  stc_nginx:
+    container_name: stc_nginx
+    build: .
+    volumes:
+      - ${BLOG_HOME}/nginx/access.log:/var/log/nginx/access.log
+      - ${BLOG_HOME}/nginx/error.log:/var/log/nginx/error.log
+      - ${BLOG_HOME}/certbot/conf:/etc/letsencrypt
+      - ${BLOG_HOME}/certbot/www:/var/www/certbot
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    depends_on:
+      - stc_ghost
+      - stc_mysql
+      - stc_certbot
+    networks:
+      - stc_net
+    # command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+  stc_mysql:
+    container_name: stc_mysql
+    image: mysql:5.7
+    volumes:
+      - ${BLOG_HOME}/mysql/db:/var/lib/mysql
+    restart: always
+    expose:
+      - 3306
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_USER_PASSWORD}
+    networks:
+      - stc_net
+  stc_ghost:
+    container_name: stc_ghost
+    image: ghost:3.13.4-alpine
+    volumes:
+      - ${BLOG_HOME}/ghost/content:/var/lib/ghost/content
+    restart: always
+    expose:
+      - 2368
+    environment:
+      # see https://docs.ghost.org/docs/config#section-running-ghost-with-config-env-variables
+      url: https://www.${BLOG_DOMAIN}
+      database__client: mysql
+      database__connection__host: stc_mysql
+      database__connection__user: ${MYSQL_USER}
+      database__connection__password: ${MYSQL_USER_PASSWORD}
+      database__connection__database: ${MYSQL_DATABASE}
+    depends_on:
+      - stc_mysql
+    networks:
+      - stc_net
+  stc_certbot:
+    image: certbot/certbot
+    restart: always
+    volumes:
+      - ${BLOG_HOME}/certbot/conf:/etc/letsencrypt
+      - ${BLOG_HOME}/certbot/www:/var/www/certbot
+    # entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - stc_net
+
+networks:
+  stc_net:
+    name: stc_net
+    driver: bridge

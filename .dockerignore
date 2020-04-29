@@ -1,0 +1,7 @@
+# local & production
+.env
+dotenv.txt
+docker-compose.yml
+nginx.conf
+# production
+init-https.sh
